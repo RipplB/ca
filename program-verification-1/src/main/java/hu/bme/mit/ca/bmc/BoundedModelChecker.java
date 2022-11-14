@@ -3,11 +3,18 @@ package hu.bme.mit.ca.bmc;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import com.google.common.base.Stopwatch;
 
 import hu.bme.mit.theta.cfa.CFA;
+import hu.bme.mit.theta.core.stmt.Stmt;
+import hu.bme.mit.theta.core.type.Expr;
+import hu.bme.mit.theta.core.type.booltype.BoolType;
+import hu.bme.mit.theta.solver.Solver;
+import hu.bme.mit.theta.solver.z3.Z3SolverFactory;
 
 public final class BoundedModelChecker implements SafetyChecker {
 
@@ -32,21 +39,58 @@ public final class BoundedModelChecker implements SafetyChecker {
 	public SafetyResult check() {
 		final Stopwatch stopwatch = Stopwatch.createStarted();
 
+		//noinspection LoopStatementThatDoesntLoop
 		while (stopwatch.elapsed(TimeUnit.SECONDS) < timeout) {
-			// TODO Implement bounded model checker:
-			// 		by building an unwinding of the program,
-			// 		search for error paths with length not greater than the bound,
-			// 		and check their feasibility using the SMT solver
-			// 		See FrameworkTest for an example of how to use solvers and the unfold method
-			// 		Pay attention to use an exploration method that does not unroll loops early.
 
-			// TODO Auto-generated method stub
-			throw new UnsupportedOperationException("TODO: auto-generated method stub");
+			if (cfa.getErrorLoc().isEmpty())
+				return SafetyResult.SAFE;
+			final CFA.Loc ERROR_LOC = cfa.getErrorLoc().get();
+			List<List<CFA.Edge>> paths =
+					cfa.getInitLoc()
+					.getOutEdges()
+					.stream()
+					.map(Collections::singletonList)
+					.collect(Collectors.toList());
+			for (int k = 1; k <= bound; k++) {
+				List<List<CFA.Edge>> newPaths = new LinkedList<>();
+				for (List<CFA.Edge> path :
+						paths) {
+					CFA.Loc currentLocation = path.get(path.size() - 1).getTarget();
+					if (currentLocation == ERROR_LOC && isPathSat(path)) {
+						return SafetyResult.UNSAFE;
+					}
+					currentLocation
+							.getOutEdges()
+							.stream()
+							.map(edge -> copyWithExtraElement(path, edge))
+							.forEach(newPaths::add);
+				}
+				paths = newPaths;
+			}
+
+			return SafetyResult.UNKNOWN;
 		}
 
 		stopwatch.stop();
 
 		return SafetyResult.TIMEOUT;
+	}
+
+	private <T> List<T> copyWithExtraElement(Collection<T> list, T element) {
+		List<T> newList = new LinkedList<>(list);
+		newList.add(element);
+		return newList;
+	}
+
+	private boolean isPathSat(Collection<CFA.Edge> path) {
+		Collection<Expr<BoolType>> expressions = new ArrayList<>();
+		List<Stmt> statements = path.stream()
+				.map(CFA.Edge::getStmt)
+				.collect(Collectors.toList());
+		Solver solver = Z3SolverFactory.getInstance().createSolver();
+		solver.add(StmtToExprTransformer.unfold(statements));
+		solver.check();
+		return solver.getStatus().isSat();
 	}
 
 }
