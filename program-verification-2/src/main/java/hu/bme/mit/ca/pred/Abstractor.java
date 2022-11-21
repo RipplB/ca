@@ -4,13 +4,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.function.Predicate;
 
 import hu.bme.mit.ca.pred.CegarChecker.SearchStrategy;
 import hu.bme.mit.ca.pred.arg.ArgNode;
 import hu.bme.mit.ca.pred.domain.PredDomain;
 import hu.bme.mit.ca.pred.domain.PredPrecision;
+import hu.bme.mit.ca.pred.domain.PredState;
 import hu.bme.mit.ca.pred.waitlist.Waitlist;
 import hu.bme.mit.theta.cfa.CFA;
+import hu.bme.mit.theta.core.type.Expr;
+import hu.bme.mit.theta.core.type.booltype.BoolType;
+import hu.bme.mit.theta.core.utils.StmtUtils;
+import hu.bme.mit.theta.core.utils.VarIndexing;
+import hu.bme.mit.theta.solver.Solver;
+import hu.bme.mit.theta.solver.z3.Z3SolverFactory;
 
 final class Abstractor {
 	private final CFA cfa;
@@ -49,7 +57,7 @@ final class Abstractor {
 		}
 
 		public AbstractionResult buildAbstraction() {
-			// TODO Implement the abstract state space exploration here:
+			// 		Implement the abstract state space exploration here:
 			//  	build an ARG using the expand and close methods;
 			//		use the waitlist to store and retrieve the non-expanded reached nodes
 			//		--> this makes the exploration strategy configurable
@@ -62,19 +70,53 @@ final class Abstractor {
 			//
 			//		Start the exploration from the initial location of the CFA with fully unknown predicate
 			//		values (= the top element of the predicate domain)
-			throw new UnsupportedOperationException("TODO: buildAbstraction method not implemented!");
+			ArgNode root = ArgNode.root(cfa.getInitLoc(), PredState.top());
+			if (cfa.getErrorLoc().isEmpty()) {
+				return AbstractionResult.safe(root);
+			}
+			CFA.Loc errorLoc = cfa.getErrorLoc().get();
+			expand(root);
+			while (!waitlist.isEmpty()) {
+				ArgNode node = waitlist.remove();
+				if (node.getLoc().equals(errorLoc)) {
+					return AbstractionResult.unsafe(node);
+				}
+				close(node);
+				if (node.isCovered())
+					continue;
+				reachedSet.add(node);
+				expand(node);
+			}
+			return AbstractionResult.safe(root);
 		}
 
 		private void close(final ArgNode node) {
-			// TODO Implement cover checking here:
+			// 		Implement cover checking here:
 			//  	for each non-covered reached ARG node, check whether it can cover the node given in the argument,
 			//		and if one is found, use the coverWith function of ArgNode to set the covering edge
-			throw new UnsupportedOperationException("TODO: close method not implemented");
+			reachedSet.stream().filter(Predicate.not(ArgNode::isCovered)).forEach(reachedNode -> {
+				if (reachedNode.getLoc().equals(node.getLoc()) && domain.isLessAbstractThan(reachedNode.getState(), node.getState())) {
+					node.coverWith(reachedNode);
+				}
+			});
 		}
 
 		private void expand(final ArgNode node) {
-			// TODO Implement the expansion of an ARG node here
-			throw new UnsupportedOperationException("TODO: auto-generated method stub");
+			final Expr<BoolType> nodeExpression = node.getState().toExpr();
+			final PredState nodeState = node.getState();
+			node.getLoc().getOutEdges().forEach(edge -> {
+				domain.getSuccStates(nodeState, precision, edge).forEach(successorState -> {
+					/*Solver solver = Z3SolverFactory.getInstance().createSolver();
+					solver.add(nodeExpression);
+					solver.add(StmtUtils.toExpr(edge.getStmt(), VarIndexing.all(0)).getExprs());
+					solver.add(successorState.toExpr());
+					solver.check();
+					if (solver.getStatus().isSat()) {
+						waitlist.add(node.createChild(edge, successorState));
+					}*/
+					waitlist.add(node.createChild(edge, successorState));
+				});
+			});
 		}
 	}
 
