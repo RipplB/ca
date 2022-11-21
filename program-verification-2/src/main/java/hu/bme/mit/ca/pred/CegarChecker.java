@@ -2,10 +2,13 @@ package hu.bme.mit.ca.pred;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import hu.bme.mit.ca.pred.arg.ArgVisualizer;
+import hu.bme.mit.ca.pred.domain.PredPrecision;
 import hu.bme.mit.ca.pred.waitlist.FifoWaitlist;
 import hu.bme.mit.ca.pred.waitlist.LifoWaitlist;
 import hu.bme.mit.ca.pred.waitlist.Waitlist;
 import hu.bme.mit.theta.cfa.CFA;
+import hu.bme.mit.theta.common.visualization.writer.GraphvizWriter;
 
 public final class CegarChecker implements SafetyChecker {
 	private final Abstractor abstractor;
@@ -32,7 +35,18 @@ public final class CegarChecker implements SafetyChecker {
 		//
 		//		Start with an empty set of predicates. The loop can exit when the Abstractor concludes that the model is
 		//		Safe, or the Refiner concludes that it is unsafe.
-		throw new UnsupportedOperationException("TODO: check method not implemented.");
+		PredPrecision precision = PredPrecision.empty();
+		while (true) {
+			AbstractionResult result = abstractor.check(precision);
+			if (result.isSafe()) {
+				return SafetyResult.safe(result.asSafe().getRootNode());
+			}
+			RefinementResult refinementResult = refiner.refine(result.asUnsafe().getErrorNode());
+			if (!refinementResult.isSpurious()) {
+				return SafetyResult.unsafe(result.asUnsafe().getErrorNode());
+			}
+			precision = precision.join(refinementResult.asSpurious().getPrecision());
+		}
 	}
 
 	public enum SearchStrategy {

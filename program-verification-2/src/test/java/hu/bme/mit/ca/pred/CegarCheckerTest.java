@@ -8,6 +8,8 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collection;
 
+import hu.bme.mit.ca.pred.arg.ArgVisualizer;
+import hu.bme.mit.theta.common.visualization.writer.GraphvizWriter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -18,6 +20,8 @@ import hu.bme.mit.ca.pred.CegarChecker.SearchStrategy;
 //import hu.bme.mit.ca.pred.arg.ArgVisualizer;
 import hu.bme.mit.theta.cfa.CFA;
 import hu.bme.mit.theta.cfa.dsl.CfaDslManager;
+
+import static org.junit.Assert.assertTrue;
 //import hu.bme.mit.theta.common.visualization.writer.GraphvizWriter;
 
 @RunWith(value = Parameterized.class)
@@ -61,14 +65,14 @@ public final class CegarCheckerTest {
 		final SafetyChecker checker = CegarChecker.create(cfa, SearchStrategy.DEPTH_FIRST);
 
 //		Uncomment after implementation!
-//		final SafetyResult result = checker.check();
-//		if (safe) {
-//			assertTrue(result.isSafe());
-//			System.out.println(
-//					GraphvizWriter.getInstance().writeString(ArgVisualizer.visualize(result.asSafe().getRootNode())));
-//		} else {
-//			assertTrue(result.isUnsafe());
-//		}
+		final SafetyResult result = checker.check();
+		if (safe) {
+			assertTrue(result.isSafe());
+			System.out.println(
+					GraphvizWriter.getInstance().writeString(ArgVisualizer.visualize(result.asSafe().getRootNode())));
+		} else {
+			assertTrue(result.isUnsafe());
+		}
 	}
 
 }
