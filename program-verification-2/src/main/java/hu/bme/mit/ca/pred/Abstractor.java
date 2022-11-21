@@ -11,6 +11,10 @@ import hu.bme.mit.ca.pred.domain.PredDomain;
 import hu.bme.mit.ca.pred.domain.PredPrecision;
 import hu.bme.mit.ca.pred.waitlist.Waitlist;
 import hu.bme.mit.theta.cfa.CFA;
+import hu.bme.mit.theta.core.utils.StmtUtils;
+import hu.bme.mit.theta.core.utils.VarIndexing;
+import hu.bme.mit.theta.solver.Solver;
+import hu.bme.mit.theta.solver.z3.Z3SolverFactory;
 
 final class Abstractor {
 	private final CFA cfa;
@@ -73,6 +77,13 @@ final class Abstractor {
 		}
 
 		private void expand(final ArgNode node) {
+			node.getLoc().getOutEdges().forEach(edge -> {
+				Solver solver = Z3SolverFactory.getInstance().createSolver();
+				solver.add(node.getState().toExpr());
+				solver.add(StmtUtils.toExpr(edge.getStmt(), VarIndexing.all(0)).getExprs());
+				solver.check();
+				solver.
+			});
 			// TODO Implement the expansion of an ARG node here
 			throw new UnsupportedOperationException("TODO: auto-generated method stub");
 		}
